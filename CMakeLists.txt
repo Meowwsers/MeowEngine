@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 find_package(SDL3 REQUIRED CONFIG)
 find_package(SDL3_ttf REQUIRED CONFIG)
+find_package(SDL3_image REQUIRED CONFIG)
 
 add_executable(MeowEngine main.cpp
         MeowEngine/MeowEngine.hpp
@@ -15,6 +16,9 @@ add_executable(MeowEngine main.cpp
         MeowEngine/Input.hpp
         MeowEngine/Player.hpp
         MeowEngine/Collider.hpp
-        MeowEngine/Math.hpp)
+        MeowEngine/Math.hpp
+        MeowEngine/Text.hpp
+        MeowEngine/ImageProcess.hpp)
 target_link_libraries(MeowEngine PRIVATE SDL3::SDL3)
 target_link_libraries(MeowEngine PRIVATE SDL3_ttf::SDL3_ttf)
+target_link_libraries(MeowEngine PRIVATE SDL3_image::SDL3_image)

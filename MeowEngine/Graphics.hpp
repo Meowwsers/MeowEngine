@@ -8,6 +8,7 @@
 #include "Core.hpp"
 #include "Application.hpp"
 #include "Player.hpp"
+#include "Math.hpp"
 
 class Graphics {
 public:
@@ -244,7 +245,132 @@ public:
             drawLine(segment, thickness, color);
         }
     }
-};
 
+    void drawBezier(const Curve& curve, Color color, int thickness, float flatnessTolerance = 1.0f) {
+        std::vector<float2> points;
+        points.push_back(curve.startPoint);
+
+        collectBezierPoints(
+            curve.startPoint,
+            curve.controlPoint1,
+            curve.controlPoint2,
+            curve.endPoint,
+            flatnessTolerance,
+            0,
+            points
+        );
+
+        drawPolyline(points, color, thickness);
+    }
+
+private:
+    void collectBezierPoints(
+        float2 p0, float2 p1, float2 p2, float2 p3,
+        float tol, int depth, std::vector<float2>& points
+    ) {
+        auto distToLine = [](float2 a, float2 b, float2 p) -> float {
+            const float dx = b.x - a.x;
+            const float dy = b.y - a.y;
+            const float len2 = dx * dx + dy * dy;
+            if (len2 < 1e-6f) {
+                return std::sqrt((p.x - a.x) * (p.x - a.x) + (p.y - a.y) * (p.y - a.y));
+            }
+            const float t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+            const float cx = a.x + t * dx - p.x;
+            const float cy = a.y + t * dy - p.y;
+            return std::sqrt(cx * cx + cy * cy);
+        };
+
+        const float d1 = distToLine(p0, p3, p1);
+        const float d2 = distToLine(p0, p3, p2);
+
+        if ((d1 + d2) <= tol || depth >= 16) {
+            points.push_back(p3);
+            return;
+        }
+
+        // De Casteljau split at t = 0.5
+        const float2 m01  = { (p0.x + p1.x) * 0.5f, (p0.y + p1.y) * 0.5f };
+        const float2 m12  = { (p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f };
+        const float2 m23  = { (p2.x + p3.x) * 0.5f, (p2.y + p3.y) * 0.5f };
+        const float2 m012 = { (m01.x + m12.x) * 0.5f, (m01.y + m12.y) * 0.5f };
+        const float2 m123 = { (m12.x + m23.x) * 0.5f, (m12.y + m23.y) * 0.5f };
+        const float2 mid  = { (m012.x + m123.x) * 0.5f, (m012.y + m123.y) * 0.5f };
+
+        collectBezierPoints(p0, m01, m012, mid, tol, depth + 1, points);
+        collectBezierPoints(mid, m123, m23, p3, tol, depth + 1, points);
+    }
+
+    void drawPolyline(const std::vector<float2>& points, Color color, int thickness) {
+        if (points.size() < 2 || thickness <= 0) {
+            return;
+        }
+
+        const float halfThickness = thickness * 0.5f;
+        const SDL_FColor fcolor = {color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, color.a / 255.0f};
+
+        auto normalize = [](float2 value) -> float2 {
+            const float len = std::sqrt(value.x * value.x + value.y * value.y);
+            if (len <= 0.0001f) {
+                return {0.0f, 0.0f};
+            }
+            return {value.x / len, value.y / len};
+        };
+
+        auto perpendicular = [](float2 value) -> float2 {
+            return {-value.y, value.x};
+        };
+
+        auto dot = [](float2 a, float2 b) -> float {
+            return a.x * b.x + a.y * b.y;
+        };
+
+        std::vector<SDL_Vertex> vertices;
+        vertices.reserve(points.size() * 2);
+
+        for (size_t i = 0; i < points.size(); i++) {
+            float2 joinNormal;
+
+            if (i == 0) {
+                const float2 dir = normalize({points[1].x - points[0].x, points[1].y - points[0].y});
+                joinNormal = perpendicular(dir);
+            } else if (i == points.size() - 1) {
+                const float2 dir = normalize({points[i].x - points[i - 1].x, points[i].y - points[i - 1].y});
+                joinNormal = perpendicular(dir);
+            } else {
+                const float2 prevDir = normalize({points[i].x - points[i - 1].x, points[i].y - points[i - 1].y});
+                const float2 nextDir = normalize({points[i + 1].x - points[i].x, points[i + 1].y - points[i].y});
+                const float2 prevNormal = perpendicular(prevDir);
+                const float2 nextNormal = perpendicular(nextDir);
+                const float2 miter = normalize({prevNormal.x + nextNormal.x, prevNormal.y + nextNormal.y});
+
+                if (miter.x == 0.0f && miter.y == 0.0f) {
+                    joinNormal = nextNormal;
+                } else {
+                    const float projection = std::max(0.2f, dot(miter, nextNormal));
+                    joinNormal = {miter.x / projection, miter.y / projection};
+                }
+            }
+
+            const float2 offset = {joinNormal.x * halfThickness, joinNormal.y * halfThickness};
+            vertices.push_back({{points[i].x + offset.x, points[i].y + offset.y}, fcolor, {0.0f, 0.0f}});
+            vertices.push_back({{points[i].x - offset.x, points[i].y - offset.y}, fcolor, {0.0f, 0.0f}});
+        }
+
+        std::vector<int> indices;
+        indices.reserve((points.size() - 1) * 6);
+        for (size_t i = 0; i + 1 < points.size(); i++) {
+            const int base = static_cast<int>(i * 2);
+            indices.push_back(base);
+            indices.push_back(base + 1);
+            indices.push_back(base + 2);
+            indices.push_back(base + 1);
+            indices.push_back(base + 3);
+            indices.push_back(base + 2);
+        }
+
+        SDL_RenderGeometry(application.renderer, nullptr, vertices.data(), static_cast<int>(vertices.size()), indices.data(), static_cast<int>(indices.size()));
+    }
+};
 
 #endif //MEOWENGINE_GRAPHICS_HPP

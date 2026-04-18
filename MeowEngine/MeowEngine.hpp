@@ -13,7 +13,7 @@
 #include "Player.hpp"
 #include "Collider.hpp"
 #include "Math.hpp"
-
-
+#include "Text.hpp"
+#include "ImageProcess.hpp"
 
 #endif //MEOWENGINE_MEOWENGINE_HPP

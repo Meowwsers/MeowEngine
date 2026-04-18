@@ -20,9 +20,7 @@ public:
     float2 velocity = {0.0f, 0.0f};
     bool grounded = false;
 
-    Player(Application argApplication) {
-        application = argApplication;
-    }
+    explicit Player(Application& argApplication) : application(argApplication) {}
 
     void setMovement(bool option) {
         enableMovement = option;
@@ -102,7 +100,7 @@ public:
     }
 
 private:
-    Application application;
+    Application& application;
     bool enableCollision = true;
     bool enableGravity = true;
     bool enableMovement = true;

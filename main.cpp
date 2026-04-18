@@ -2,39 +2,33 @@
 
 int main() {
    Application application;
-   application.createWindow(800, 600, "MeowEngine");
+   application.createWindow(1000, 800, "MeowEngine");
 
    Graphics graphics(application);
    EventSystem eventSystem(application);
    eventSystem.addModule(ModuleQuitOnESC);
-   eventSystem.addModule(Input::ProcessEvent);
 
-   Player player(application);
-   player.rect = {{100, 100}, {50, 50}};
-   player.color = MAROON;
-
-   Rect groundPos = {{0, 550}, {600, 600}};
-   Collider groundCollider{};
-   groundCollider.rect = groundPos;
-
-   Collider obstacle1{};
-   obstacle1.rect = {{500, 470}, {50, 50}};
-
-   std::vector<Collider> worldColliders = {groundCollider, obstacle1};
+   Curve curve;
+   curve.startPoint = {100, 100};
+   curve.endPoint = {900, 700};
+   curve.controlPoint1 = {100, 200};
+   curve.controlPoint2 = {450, 100};
 
     while (application.running) {
         eventSystem.runEvents();
-
-
-        player.update(application.deltaTime, worldColliders);
         graphics.clearBackground(SKYBLUE);
-        graphics.drawRect(groundPos, DARKGRAY);
-        graphics.drawRect(obstacle1.rect, BLACK);
-        graphics.drawPlayer(player);
+
+        if(Input::IsKeyDown(KEY_ONE)) curve.controlPoint1 = Input::getMousePos();
+        if(Input::IsKeyDown(KEY_TWO)) curve.controlPoint2 = Input::getMousePos();
+
+        graphics.drawCircle(curve.startPoint, 10, BLACK);
+        graphics.drawCircle(curve.endPoint, 10, BLACK);
+        graphics.drawCircle(curve.controlPoint1, 10, DARKGRAY);
+        graphics.drawCircle(curve.controlPoint2, 10, BLACK);
+
+        graphics.drawBezier(curve, MAROON, 10);
 
         graphics.update();
     }
-
-    application.closeWindow();
     return 0;
 }

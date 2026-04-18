@@ -8,6 +8,9 @@
 #include <iostream>
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
+#include <SDL3_image/SDL_image.h>
+#include <algorithm>
+#include <random>
 
 // Credits to raylib for color definitions
 #define LIGHTGRAY  (Color){ 200, 200, 200, 255 }   // Light Gray
@@ -58,10 +61,10 @@ struct float4 {
 };
 
 struct Color {
-    int r;
-    int g;
-    int b;
-    int a = 255;
+    Uint8 r;
+    Uint8 g;
+    Uint8 b;
+    Uint8 a = 255;
 };
 
 struct Rect {
@@ -78,6 +81,13 @@ struct Triangle {
     float2 a;
     float2 b;
     float2 c;
+};
+
+struct Curve {
+    float2 startPoint;
+    float2 controlPoint1;
+    float2 controlPoint2;
+    float2 endPoint;
 };
 
 struct Texture {
@@ -110,6 +120,78 @@ inline int getFPS(float deltaTime) {
     return static_cast<int>(1.0f / smoothedDelta);
 }
 
+inline int getFPS(float deltaTime, Uint32 averageWindowMs, bool* hasNewValue) {
+    static float accumulatedTime = 0.0f;
+    static int accumulatedFrames = 0;
+    static int averagedFPS = 60;
 
+    if (hasNewValue) {
+        *hasNewValue = false;
+    }
+
+    if (deltaTime <= 0.0f) {
+        return averagedFPS;
+    }
+
+    const float windowSeconds = static_cast<float>(std::max<Uint32>(averageWindowMs, 1)) / 1000.0f;
+    accumulatedTime += deltaTime;
+    accumulatedFrames++;
+
+    if (accumulatedTime >= windowSeconds) {
+        averagedFPS = static_cast<int>(static_cast<float>(accumulatedFrames) / accumulatedTime);
+        accumulatedTime = 0.0f;
+        accumulatedFrames = 0;
+        if (hasNewValue) {
+            *hasNewValue = true;
+        }
+    }
+
+    return averagedFPS;
+}
+
+inline int getAverageFPS(float deltaTime, Uint32 averageWindowMs) {
+    return getFPS(deltaTime, averageWindowMs, nullptr);
+}
+
+inline int toInt(float f) {
+    return static_cast<int>(f);
+}
+
+inline float toFloat(int i) {
+    return static_cast<float> (i);
+}
+
+template <typename T>
+void shuffleVector(std::vector<T>& vec) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::shuffle(vec.begin(), vec.end(), gen);
+}
+
+template <typename T>
+void quickSort(std::vector<T>& vec, int left, int right) {
+    if (left >= right) return;
+
+    T pivot = vec[right];
+    int partitionIndex = left;
+
+    for (int i = left; i < right; i++) {
+        if (vec[i] < pivot) {
+            std::swap(vec[i], vec[partitionIndex]);
+            partitionIndex++;
+        }
+    }
+    std::swap(vec[partitionIndex], vec[right]);
+
+    quickSort(vec, left, partitionIndex - 1);
+    quickSort(vec, partitionIndex + 1, right);
+}
+
+template <typename T>
+void quickSort(std::vector<T>& vec) {
+    if (!vec.empty()) {
+        quickSort(vec, 0, vec.size() - 1);
+    }
+}
 
 #endif //MEOWENGINE_CORE_HPP

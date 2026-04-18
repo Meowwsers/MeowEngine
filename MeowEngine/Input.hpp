@@ -134,6 +134,10 @@ public:
         return (currMouseState & SDL_BUTTON_MASK(button)) && !(prevMouseState & SDL_BUTTON_MASK(button));
     }
 
+    static float2 getMousePos() {
+        return {GetMouseX(), GetMouseY()};
+    }
+
 private:
     inline static std::array<bool, SDL_SCANCODE_COUNT> currKeyState{};
     inline static std::array<bool, SDL_SCANCODE_COUNT> prevKeyState{};
