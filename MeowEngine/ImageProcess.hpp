@@ -24,18 +24,16 @@ public:
     Application& application;
     Texture image;
 
-    void drawImg(float2 pos, float scale) {
-        if (!gpuTexture || scale <= 0.0f || displayW <= 0 || displayH <= 0) {
-            return;
-        }
+    SDL_Texture* getGPUTexture() const {
+        return gpuTexture;
+    }
 
-        SDL_FRect dst = {
-            pos.x,
-            pos.y,
-            static_cast<float>(displayW) * scale,
-            static_cast<float>(displayH) * scale
-        };
-        SDL_RenderTexture(application.renderer, gpuTexture, nullptr, &dst);
+    int getDisplayWidth() const {
+        return displayW;
+    }
+
+    int getDisplayHeight() const {
+        return displayH;
     }
 
     void invertColors() {
@@ -178,12 +176,11 @@ private:
 
         // STATIC + SDL_UpdateTexture is usually lower overhead for full-frame uploads.
         if (!gpuTexture) {
-            gpuTexture = SDL_CreateTexture(
-                application.renderer,
-                SDL_PIXELFORMAT_RGBA32,
-                SDL_TEXTUREACCESS_STATIC,
+            gpuTexture = application.createTexture(
                 image.w,
-                image.h
+                image.h,
+                SDL_PIXELFORMAT_RGBA32,
+                SDL_TEXTUREACCESS_STATIC
             );
         }
 

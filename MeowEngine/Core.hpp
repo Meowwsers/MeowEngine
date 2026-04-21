@@ -11,6 +11,8 @@
 #include <SDL3_image/SDL_image.h>
 #include <algorithm>
 #include <random>
+#include <thread>
+#include <chrono>
 
 // Credits to raylib for color definitions
 #define LIGHTGRAY  (Color){ 200, 200, 200, 255 }   // Light Gray
@@ -39,6 +41,7 @@
 #define BLACK      (Color){ 0, 0, 0, 255 }         // Black
 #define BLANK      (Color){ 0, 0, 0, 0 }           // Blank (Transparent)
 #define MAGENTA    (Color){ 255, 0, 255, 255 }     // Magenta
+#define WHITE2     (Color){ 245, 245, 245, 255 }
 
 typedef std::string string;
 
@@ -192,6 +195,10 @@ void quickSort(std::vector<T>& vec) {
     if (!vec.empty()) {
         quickSort(vec, 0, vec.size() - 1);
     }
+}
+
+inline void delay(int milliseconds) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 }
 
 #endif //MEOWENGINE_CORE_HPP

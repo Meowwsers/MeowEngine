@@ -13,6 +13,9 @@
 class Graphics {
 public:
     explicit Graphics(Application& application1) : application(application1) {}
+    ~Graphics() {
+        destroyCachedText();
+    }
     Application& application;
 
     void clearBackground(Color color) {
@@ -67,6 +70,79 @@ public:
 
     void drawPlayer(const Player& player) {
         drawRect(player.rect, player.color);
+    }
+
+    void drawTexture(const Texture& texture, float2 pos, float scale = 1) {
+        if (!application.renderer || scale <= 0.0f || texture.w <= 0 || texture.h <= 0 || texture.colorData.empty()) {
+            return;
+        }
+
+        SDL_Texture* gpuTexture = application.createTexture(
+            texture.w,
+            texture.h,
+            SDL_PIXELFORMAT_RGBA32,
+            SDL_TEXTUREACCESS_STATIC
+        );
+
+        if (!gpuTexture) {
+            return;
+        }
+
+        const int pitch = texture.w * static_cast<int>(sizeof(Color));
+        if (!SDL_UpdateTexture(gpuTexture, nullptr, texture.colorData.data(), pitch)) {
+            SDL_DestroyTexture(gpuTexture);
+            return;
+        }
+
+        SDL_FRect dst = {
+            pos.x,
+            pos.y,
+            static_cast<float>(texture.w) * scale,
+            static_cast<float>(texture.h) * scale
+        };
+        SDL_RenderTexture(application.renderer, gpuTexture, nullptr, &dst);
+        SDL_DestroyTexture(gpuTexture);
+    }
+
+    void drawText(const string& text, float2 pos, Color color, float scale = 1.0f) {
+        if (!application.textEngine || !application.font || !application.renderer) {
+            return;
+        }
+
+        if (scale <= 0.0f) {
+            scale = 1.0f;
+        }
+
+        if (baseFontSize <= 0.0f) {
+            baseFontSize = TTF_GetFontSize(application.font);
+            if (baseFontSize <= 0.0f) {
+                baseFontSize = 1.0f;
+            }
+        }
+
+        float scaledFontSize = baseFontSize * scale;
+        if (scaledFontSize < 1.0f) {
+            scaledFontSize = 1.0f;
+        }
+
+        if (cacheDirty || !cachedText || text != cachedString || scaledFontSize != cachedScale || !isSameColor(color, cachedColor)) {
+            TTF_SetFontSize(application.font, scaledFontSize);
+
+            destroyCachedText();
+            cachedText = TTF_CreateText(application.textEngine, application.font, text.c_str(), text.length());
+            if (!cachedText) {
+                return;
+            }
+
+            TTF_SetTextColor(cachedText, color.r, color.g, color.b, color.a);
+
+            cachedString = text;
+            cachedScale = scaledFontSize;
+            cachedColor = color;
+            cacheDirty = false;
+        }
+
+        TTF_DrawRendererText(cachedText, pos.x, pos.y);
     }
 
     void drawRectOutline(Rect rect, Color color, int thickness) {
@@ -188,9 +264,9 @@ public:
             {{tri.c.x, tri.c.y}, fcolor, {0.0f, 0.0f}}
         };
         
-        int indices[3] = {0, 1, 2};
+        int indices[6] = {0, 1, 2, 0, 2, 1};
         
-        SDL_RenderGeometry(application.renderer, NULL, vertices, 3, indices, 3);
+        SDL_RenderGeometry(application.renderer, NULL, vertices, 3, indices, 6);
     }
 
     void drawTriangleOutline(Triangle tri, Color color, int thickness) {
@@ -263,7 +339,118 @@ public:
         drawPolyline(points, color, thickness);
     }
 
+    void drawArrow(float2 startPos, float2 endPos, int thickness, int headSize, Color color) {
+        float dx = endPos.x - startPos.x;
+        float dy = endPos.y - startPos.y;
+        float length = std::sqrt(dx * dx + dy * dy);
+
+        if (length > 0.0001f) {
+            float unitDx = dx / length;
+            float unitDy = dy / length;
+
+            // Draw line up to the arrow head base
+            float2 lineEnd = {
+                endPos.x - unitDx * headSize,
+                endPos.y - unitDy * headSize
+            };
+            drawLine({startPos, lineEnd}, thickness, color);
+
+            // Perpendicular vector
+            float perpX = -unitDy;
+            float perpY = unitDx;
+
+            float halfHeadSize = headSize * 0.5f;
+
+            Triangle tri;
+            tri.a = endPos;
+            tri.b = {
+                endPos.x - unitDx * headSize - perpX * halfHeadSize,
+                endPos.y - unitDy * headSize - perpY * halfHeadSize
+            };
+            tri.c = {
+                endPos.x - unitDx * headSize + perpX * halfHeadSize,
+                endPos.y - unitDy * headSize + perpY * halfHeadSize
+            };
+
+            drawTriangle(tri, color);
+        }
+    }
+
+    float2 drawGuizmo(float2 pos, int displaySize, bool interactive = true) {
+        Color redColor = RED;
+        Color greenColor = DARKGREEN;
+
+        static bool draggingX = false;
+        static bool draggingY = false;
+        static float2 dragOffset = {0, 0};
+
+        if (interactive) {
+            float thickness = displaySize / 15.0f;
+            float padding = 10.0f; // padding value to make hitbox more forgiving
+            float2 mousePos = Input::getMousePos();
+
+            // X-axis arrow hitbox (approximate)
+            Rect xArrowRect = {
+                {pos.x, pos.y - (thickness / 2.0f + padding)},
+                {(float)displaySize, thickness + padding * 2.0f}
+            };
+            // Y-axis arrow hitbox (approximate)
+            Rect yArrowRect = {
+                {pos.x - (thickness / 2.0f + padding), pos.y - displaySize},
+                {thickness + padding * 2.0f, (float)displaySize}
+            };
+
+            if (Input::IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                if (Input::isHoveringOver(xArrowRect)) {
+                    draggingX = true;
+                    dragOffset = Math::subtractFloat2(mousePos, pos);
+                } else if (Input::isHoveringOver(yArrowRect)) {
+                    draggingY = true;
+                    dragOffset = Math::subtractFloat2(mousePos, pos);
+                }
+            }
+
+            if (!Input::IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                draggingX = false;
+                draggingY = false;
+            }
+
+            if (draggingX) {
+                redColor = { (Uint8)std::min(redColor.r + 50, 255), (Uint8)std::min(redColor.g + 50, 255), (Uint8)std::min(redColor.b + 50, 255), redColor.a };
+                pos.x = mousePos.x - dragOffset.x;
+            } else if (Input::isHoveringOver(xArrowRect)) {
+                redColor = { (Uint8)std::min(redColor.r + 50, 255), (Uint8)std::min(redColor.g + 50, 255), (Uint8)std::min(redColor.b + 50, 255), redColor.a };
+            }
+
+            if (draggingY) {
+                greenColor = { (Uint8)std::min(greenColor.r + 50, 255), (Uint8)std::min(greenColor.g + 50, 255), (Uint8)std::min(greenColor.b + 50, 255), greenColor.a };
+                pos.y = mousePos.y - dragOffset.y;
+            } else if (Input::isHoveringOver(yArrowRect)) {
+                greenColor = { (Uint8)std::min(greenColor.r + 50, 255), (Uint8)std::min(greenColor.g + 50, 255), (Uint8)std::min(greenColor.b + 50, 255), greenColor.a };
+            }
+        }
+
+        drawArrow(pos, {pos.x + displaySize, pos.y}, displaySize/15 ,displaySize/3, redColor);
+        drawArrow(pos, {pos.x, pos.y - displaySize}, displaySize/15 ,displaySize/3, greenColor);
+        drawCircle(pos, displaySize/15, DARKGRAY);
+
+        return pos;
+    }
+
+
+
 private:
+    static bool isSameColor(const Color& a, const Color& b) {
+        return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+    }
+
+    void destroyCachedText() {
+        if (cachedText) {
+            TTF_DestroyText(cachedText);
+            cachedText = nullptr;
+        }
+    }
+
     void collectBezierPoints(
         float2 p0, float2 p1, float2 p2, float2 p3,
         float tol, int depth, std::vector<float2>& points
@@ -371,6 +558,13 @@ private:
 
         SDL_RenderGeometry(application.renderer, nullptr, vertices.data(), static_cast<int>(vertices.size()), indices.data(), static_cast<int>(indices.size()));
     }
+
+    TTF_Text* cachedText = nullptr;
+    string cachedString;
+    float baseFontSize = 0.0f;
+    float cachedScale = -1.0f;
+    Color cachedColor = WHITE;
+    bool cacheDirty = true;
 };
 
 #endif //MEOWENGINE_GRAPHICS_HPP

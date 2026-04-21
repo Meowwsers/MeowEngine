@@ -42,6 +42,8 @@ public:
                 continue;
             }
 
+            Input::ProcessEvent(application, event);
+
             for (const auto& module : modules) {
                 if (module(application, event)) {
                     break;

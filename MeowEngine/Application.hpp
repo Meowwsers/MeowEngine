@@ -82,6 +82,9 @@ public:
         // Keep presentation synchronized with the display to reduce tearing/stutter.
         SDL_SetRenderVSync(renderer, 1);
 
+        // All textures created from this renderer default to nearest-neighbor scaling.
+        SDL_SetDefaultTextureScaleMode(renderer, SDL_SCALEMODE_NEAREST);
+
         textEngine = TTF_CreateRendererTextEngine(renderer);
         if (!textEngine) {
             running = false;
@@ -156,6 +159,14 @@ public:
         fontPath = std::move(argFontPath);
     }
 
+    SDL_Texture* createTexture(int width, int height, SDL_PixelFormat format = SDL_PIXELFORMAT_RGBA32, SDL_TextureAccess access = SDL_TEXTUREACCESS_STATIC) const {
+        if (!renderer || width <= 0 || height <= 0) {
+            return nullptr;
+        }
+
+        return SDL_CreateTexture(renderer, format, access, width, height);
+    }
+
 private:
     string windowTitle;
     SDL_WindowFlags windowFlags = 0;
@@ -177,17 +188,20 @@ private:
     static string getDefaultFontPathForCurrentOS() {
 #if defined(_WIN32)
         const std::vector<string> candidates = {
+                "../MeowEngine/Recourses/defaultFont.ttf",
             "C:/Windows/Fonts/segoeui.ttf",
             "C:/Windows/Fonts/arial.ttf"
         };
 #elif defined(__APPLE__)
         const std::vector<string> candidates = {
+                "../MeowEngine/Recourses/defaultFont.ttf",
                 "/System/Library/Fonts/Supplemental/Helvetica.ttc",
                 "/System/Library/Fonts/Supplemental/Arial.ttf",
                 "/Library/Fonts/Arial.ttf"
         };
 #else
         const std::vector<string> candidates = {
+                "../MeowEngine/Recourses/defaultFont.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
             "/usr/share/fonts/truetype/freefont/FreeSans.ttf"

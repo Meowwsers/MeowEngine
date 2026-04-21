@@ -17,8 +17,9 @@ add_executable(MeowEngine main.cpp
         MeowEngine/Player.hpp
         MeowEngine/Collider.hpp
         MeowEngine/Math.hpp
-        MeowEngine/Text.hpp
-        MeowEngine/ImageProcess.hpp)
+        MeowEngine/ImageProcess.hpp
+        MeowEngine/GenerateNoise.hpp
+)
 target_link_libraries(MeowEngine PRIVATE SDL3::SDL3)
 target_link_libraries(MeowEngine PRIVATE SDL3_ttf::SDL3_ttf)
 target_link_libraries(MeowEngine PRIVATE SDL3_image::SDL3_image)

@@ -99,6 +99,14 @@ enum KeyboardKey {
     KEY_RIGHT_ALT       = SDL_SCANCODE_RALT
 };
 
+enum MouseButton {
+    MOUSE_BUTTON_LEFT    = SDL_BUTTON_LEFT,
+    MOUSE_BUTTON_MIDDLE  = SDL_BUTTON_MIDDLE,
+    MOUSE_BUTTON_RIGHT   = SDL_BUTTON_RIGHT,
+    MOUSE_BUTTON_X1      = SDL_BUTTON_X1,
+    MOUSE_BUTTON_X2      = SDL_BUTTON_X2
+};
+
 class Input {
 public:
     static void NewFrame() {
@@ -110,10 +118,14 @@ public:
 
         prevMouseState = currMouseState;
         currMouseState = SDL_GetMouseState(&mouseX, &mouseY);
+        scrollDeltaY = 0.0f;
     }
 
     static bool ProcessEvent(class Application&, const SDL_Event& event) {
-        (void)event;
+        if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+            scrollDeltaY = event.wheel.y;
+            return true;
+        }
         return false;
     }
 
@@ -129,13 +141,24 @@ public:
     // Mouse API
     static float GetMouseX() { return mouseX; }
     static float GetMouseY() { return mouseY; }
-    static bool IsMouseButtonDown(int button) { return currMouseState & SDL_BUTTON_MASK(button); }
-    static bool IsMouseButtonPressed(int button) {
+    static bool IsMouseButtonDown(MouseButton button) { return currMouseState & SDL_BUTTON_MASK(button); }
+    static bool IsMouseButtonPressed(MouseButton button) {
         return (currMouseState & SDL_BUTTON_MASK(button)) && !(prevMouseState & SDL_BUTTON_MASK(button));
     }
 
     static float2 getMousePos() {
         return {GetMouseX(), GetMouseY()};
+    }
+
+    static float GetScrollDelta() { return scrollDeltaY; }
+
+    static bool isHoveringOver(Rect rect, float2 mousePos = getMousePos()) {
+        return mousePos.x >= rect.pos.x && mousePos.x <= rect.pos.x + rect.size.x &&
+               mousePos.y >= rect.pos.y && mousePos.y <= rect.pos.y + rect.size.y;
+    }
+
+    static bool isMouseClicked() {
+        return Input::IsMouseButtonDown(MOUSE_BUTTON_LEFT);
     }
 
 private:
@@ -145,6 +168,7 @@ private:
     inline static Uint32 prevMouseState = 0;
     inline static float mouseX = 0;
     inline static float mouseY = 0;
+    inline static float scrollDeltaY = 0.0f;
 };
 
 #endif //MEOWENGINE_INPUT_HPP
